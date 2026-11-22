@@ -1,0 +1,3 @@
+cloud_id    = "replace-with-cloud-id"
+folder_id   = "replace-with-folder-id"
+bucket_name = "vvot23-archives-replace-with-unique-suffix"

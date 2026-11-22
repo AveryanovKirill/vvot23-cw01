@@ -1,0 +1,162 @@
+openapi: 3.0.3
+info:
+  title: Система архивирования vvot23
+  version: 1.0.0
+
+# Все интеграции используют учётную запись шлюза с отдельными правами.
+x-yc-apigateway:
+  service_account_id: '${service_account_id}'
+
+paths:
+  /tasks:
+    post:
+      operationId: createTask
+      summary: Поставить файл в очередь на архивирование
+      x-yc-apigateway-validator:
+        validateRequestBody: true
+        validationErrorHandler:
+          statusCode: 400
+          x-yc-apigateway-integration:
+            type: dummy
+            http_code: 200
+            http_headers:
+              Content-Type: application/json
+            content:
+              application/json: '{"error":"Укажите имя файла и корректный HTTP(S) URL"}'
+      x-yc-apigateway-integration:
+        type: cloud_ymq
+        action: SendMessage
+        queue_url: '${queue_url}'
+        payload_format_type: body
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Task'
+      responses:
+        # Успешный SendMessage возвращает 200. Для клиента это принятие задачи.
+        '200':
+          description: Очередь приняла задание
+          x-yc-status-mapping: 202
+        '202':
+          description: Задание принято на обработку
+        '400':
+          description: Некорректное задание
+
+  /archives:
+    get:
+      operationId: listArchives
+      summary: Получить список архивов
+      x-yc-apigateway-integration:
+        type: cloud_ydb
+        action: Scan
+        database: '${database_path}'
+        table_name: '${table_name}'
+      responses:
+        '200':
+          description: Список архивов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Archive'
+
+  /archives/{key}:
+    get:
+      operationId: getArchive
+      summary: Получить сведения об архиве
+      parameters:
+        - $ref: '#/components/parameters/ArchiveKey'
+      x-yc-apigateway-validator:
+        $ref: '#/components/x-yc-apigateway-validators/archiveKey'
+      x-yc-apigateway-integration:
+        type: cloud_ydb
+        action: GetItem
+        database: '${database_path}'
+        table_name: '${table_name}'
+        key: '{"key":"{key}"}'
+      responses:
+        '200':
+          description: Сведения об архиве
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Archive'
+        '404':
+          description: Архив не найден
+
+  /download/{key}:
+    get:
+      operationId: downloadArchive
+      summary: Скачать архив
+      parameters:
+        - $ref: '#/components/parameters/ArchiveKey'
+      x-yc-apigateway-validator:
+        $ref: '#/components/x-yc-apigateway-validators/archiveKey'
+      x-yc-apigateway-integration:
+        type: object_storage
+        bucket: '${bucket_name}'
+        object: '{key}'
+      responses:
+        '200':
+          description: ZIP-архив
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Архив не найден
+
+components:
+  x-yc-apigateway-validators:
+    archiveKey:
+      validateRequestParameters: true
+      validationErrorHandler:
+        statusCode: 404
+        x-yc-apigateway-integration:
+          type: dummy
+          http_code: 200
+          http_headers:
+            Content-Type: application/json
+          content:
+            application/json: '{"error":"Архив не найден"}'
+  parameters:
+    ArchiveKey:
+      name: key
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.zip$'
+  schemas:
+    Task:
+      type: object
+      required: [name, url]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: '^[^/\\:\x00-\x1f\x7f]+$'
+          not:
+            enum: ['.', '..']
+          example: document.pdf
+        url:
+          type: string
+          format: uri
+          maxLength: 8192
+          pattern: '^https?://[^/@?#\s]+([/?#][^\s]*)?$'
+          example: https://example.com/document.pdf
+    Archive:
+      type: object
+      required: [name, url, key]
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+        key:
+          type: string

@@ -1,0 +1,12 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+crash.log
+crash.*.log
+.env
+.env.*
+node_modules/

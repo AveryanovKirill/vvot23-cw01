@@ -1,0 +1,11 @@
+{
+  "name": "vvot23-archiver",
+  "version": "1.0.0",
+  "private": true,
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1175.0",
+    "ipaddr.js": "2.5.0",
+    "yazl": "3.3.1"
+  }
+}
