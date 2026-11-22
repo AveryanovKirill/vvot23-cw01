@@ -119,6 +119,7 @@ resource "yandex_api_gateway" "archive" {
   spec = templatefile("${path.module}/openapi.yaml", {
     service_account_id = yandex_iam_service_account.accounts["gateway"].id
     queue_url          = yandex_message_queue.tasks.id
+    folder_id          = var.folder_id
     database_path      = yandex_ydb_database_serverless.archives.database_path
     table_name         = aws_dynamodb_table.archives.name
     bucket_name        = yandex_storage_bucket.archives.bucket

@@ -27,6 +27,7 @@ paths:
         type: cloud_ymq
         action: SendMessage
         queue_url: '${queue_url}'
+        folder_id: '${folder_id}'
         payload_format_type: body
       requestBody:
         required: true
